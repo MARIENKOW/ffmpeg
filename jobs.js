@@ -10,7 +10,7 @@ const {
     sendShortVideo,
     sendFullVideo,
     sendErrorToAdmin,
-} = require("../telegram");
+} = require("./telegram");
 
 const VIDEOS_DIR = path.resolve(process.env.VIDEOS_DIR || "./storage/videos");
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
