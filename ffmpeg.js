@@ -8,50 +8,8 @@ const WATERMARK_PATH =
     process.env.WATERMARK_PATH ||
     path.join(__dirname, "..", "assets", "watermark.png");
 
-const WATERMARK_SCALE = process.env.WATERMARK_SCALE || "0.80";
+const WATERMARK_SCALE = process.env.WATERMARK_SCALE || "0.8";
 
-/**
- * Получаем реальные display-размеры видео через ffprobe.
- * SAR может быть не 1:1 — тогда coded_width != display_width.
- */
-const getDisplaySize = (inputPath) => {
-    return new Promise((resolve, reject) => {
-        ffmpeg.ffprobe(inputPath, (err, metadata) => {
-            if (err) return reject(err);
-
-            const stream = metadata.streams.find(
-                (s) => s.codec_type === "video",
-            );
-            if (!stream) return reject(new Error("Видеопоток не найден"));
-
-            let displayWidth = stream.width;
-            const displayHeight = stream.height;
-
-            // Если SAR задан и не квадратный — пересчитываем ширину
-            const sar = stream.sample_aspect_ratio; // например "4:3" или "1:1"
-            if (sar && sar !== "1:1" && sar !== "0:1") {
-                const [sarW, sarH] = sar.split(":").map(Number);
-                if (sarW > 0 && sarH > 0) {
-                    displayWidth = Math.round((stream.width * sarW) / sarH);
-                }
-            }
-
-            // libx264 требует чётных размеров
-            const w = Math.floor(displayWidth / 2) * 2;
-            const h = Math.floor(displayHeight / 2) * 2;
-
-            console.log(
-                `[ffprobe] coded: ${stream.width}x${stream.height}, SAR: ${sar}, display: ${w}x${h}`,
-            );
-            resolve({ width: w, height: h });
-        });
-    });
-};
-
-/**
- * Базовая сборка команды.
- * Принимает уже вычисленные display-размеры — никакой магии в фильтре.
- */
 const buildCommand = (inputPath, outputPath, extraArgs = []) => {
     const wmScale = parseFloat(WATERMARK_SCALE);
 
@@ -82,9 +40,6 @@ const buildCommand = (inputPath, outputPath, extraArgs = []) => {
         .output(outputPath);
 };
 
-/**
- * Добавляет вотермарку без обрезки (full-версия).
- */
 const addWatermark = (inputPath, outputPath) => {
     return new Promise((resolve, reject) => {
         buildCommand(inputPath, outputPath)
@@ -101,12 +56,7 @@ const addWatermark = (inputPath, outputPath) => {
     });
 };
 
-/**
- * Добавляет вотермарку + обрезает до durationSec секунд (short-версия).
- */
-const addWatermarkAndTrim = async(inputPath, outputPath, durationSec) => {
-        const { width, height } = await getDisplaySize(inputPath);
-
+const addWatermarkAndTrim = (inputPath, outputPath, durationSec) => {
     return new Promise((resolve, reject) => {
         buildCommand(inputPath, outputPath, [`-t ${durationSec}`])
             .on("start", (cmd) => console.log("[ffmpeg:short] start:", cmd))
