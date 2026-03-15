@@ -1,5 +1,9 @@
 const ffmpeg = require("fluent-ffmpeg");
+const ffmpegStatic = require("ffmpeg-static");
 const path = require("path");
+
+// Указываем путь к бинарнику — сначала из ENV, иначе берём из ffmpeg-static
+ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegStatic);
 
 const WATERMARK_PATH =
     process.env.WATERMARK_PATH ||
