@@ -6,6 +6,7 @@ const path = require("path");
 const prisma = require("./prisma");
 const { downloadFromGDrive } = require("./downloader");
 const { addWatermark, addWatermarkAndTrim } = require("./ffmpeg");
+const { sendShortVideo, sendFullVideo } = require("./telegram");
 
 const VIDEOS_DIR = path.resolve(process.env.VIDEOS_DIR || "./storage/videos");
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
@@ -72,9 +73,11 @@ router.get("/:id/download/:type", async (req, res) => {
     if (!job) return res.status(404).json({ error: "Задача не найдена" });
 
     if (job.status !== "SUCCESS") {
-        return res.status(409).json({
-            error: `Задача в статусе "${job.status}", файлы ещё не готовы`,
-        });
+        return res
+            .status(409)
+            .json({
+                error: `Задача в статусе "${job.status}", файлы ещё не готовы`,
+            });
     }
 
     const filePath = type === "short" ? job.shortPath : job.fullPath;
@@ -163,6 +166,17 @@ async function processJob(id, driveUrl, trimDuration, jobDir) {
         });
 
         console.log(`[job:${id}] Статус → SUCCESS`);
+
+        // Отправляем видео в Telegram параллельно
+        console.log(`[job:${id}] Отправляю в Telegram...`);
+        await Promise.all([
+            sendShortVideo(shortPath).then(() =>
+                console.log(`[job:${id}] Short → Telegram ✓`),
+            ),
+            sendFullVideo(fullPath).then(() =>
+                console.log(`[job:${id}] Full  → Telegram ✓`),
+            ),
+        ]);
     } catch (err) {
         console.error(`[job:${id}] Ошибка:`, err.message);
 
