@@ -147,7 +147,6 @@ router.get("/:id/download/:type", async (req, res) => {
     });
 });
 
-
 async function processJob(id, driveUrl, trimDuration, jobDir) {
     let sourcePath = null;
 
