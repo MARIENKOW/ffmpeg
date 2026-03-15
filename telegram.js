@@ -89,7 +89,7 @@ const sendErrorToAdmin = async (jobId, stage, error) => {
         `🆔 <b>Job ID:</b> <code>${jobId}</code>`,
         `📍 <b>Этап:</b> ${stage}`,
         `💬 <b>Ошибка:</b>`,
-        `<pre>${String(error).slice(0, 3000)}</pre>`, // Telegram лимит на сообщение
+        `<pre>${String(error).slice(0, 3000)}</pre>`,
     ].join("\n");
 
     try {
