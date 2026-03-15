@@ -23,17 +23,15 @@ router.post("/", async (req, res) => {
     if (!url) {
         return res.status(400).json({ error: 'Поле "url" обязательно' });
     }
-    const id = uuidv4();
-    console.log(id);
 
-    res.status(202).json({ id });
+    res.status(202).json(true);
 
-    const jobDir = path.join(VIDEOS_DIR, id);
-    setImmediate(() => processJob(id, url, TRIM_DURATION, jobDir));
+    setImmediate(() => processJob(url, TRIM_DURATION, jobDir));
 });
 
-async function processJob(id, driveUrl, trimDuration, jobDir) {
+async function processJob(driveUrl, trimDuration) {
     let sourcePath = null;
+    const id = uuidv4();
 
     // Обёртка: запускает шаг, при ошибке уведомляет админа и пробрасывает дальше
     const step = async (stageName, fn) => {
@@ -46,6 +44,7 @@ async function processJob(id, driveUrl, trimDuration, jobDir) {
     };
 
     try {
+        const jobDir = path.join(VIDEOS_DIR, id);
         fs.mkdirSync(jobDir, { recursive: true });
 
         const tmpDir = path.join(VIDEOS_DIR, "__tmp__");
