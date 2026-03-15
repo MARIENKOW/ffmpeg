@@ -3,9 +3,9 @@ const router = express.Router();
 const fs = require("fs");
 const path = require("path");
 
-const prisma = require("../prisma");
-const { downloadFromGDrive } = require("../downloader");
-const { addWatermark, addWatermarkAndTrim } = require("../ffmpeg");
+const prisma = require("./prisma");
+const { downloadFromGDrive } = require("./downloader");
+const { addWatermark, addWatermarkAndTrim } = require("./ffmpeg");
 
 const VIDEOS_DIR = path.resolve(process.env.VIDEOS_DIR || "./storage/videos");
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
