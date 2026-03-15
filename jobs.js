@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const fs = require("fs");
 const path = require("path");
+const { v4: uuidv4 } = require("uuid");
 
 const prisma = require("./prisma");
 const { downloadFromGDrive } = require("./downloader");
@@ -22,11 +23,13 @@ router.post("/", async (req, res) => {
     if (!url) {
         return res.status(400).json({ error: 'Поле "url" обязательно' });
     }
+    const id = uuidv4();
+    console.log(id);
 
-    res.status(202).json({ id: job.id });
+    res.status(202).json({ id });
 
-    const jobDir = path.join(VIDEOS_DIR, job.id);
-    setImmediate(() => processJob(job.id, url, TRIM_DURATION, jobDir));
+    const jobDir = path.join(VIDEOS_DIR, id);
+    setImmediate(() => processJob(id, url, TRIM_DURATION, jobDir));
 });
 
 async function processJob(id, driveUrl, trimDuration, jobDir) {
