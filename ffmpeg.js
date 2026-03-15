@@ -1,8 +1,10 @@
 const ffmpeg = require("fluent-ffmpeg");
 const ffmpegStatic = require("ffmpeg-static");
+const ffprobeStatic = require("ffprobe-static");
 const path = require("path");
 
 ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegStatic);
+ffmpeg.setFfprobePath(process.env.FFPROBE_PATH || ffprobeStatic.path);
 
 const WATERMARK_PATH =
     process.env.WATERMARK_PATH ||
