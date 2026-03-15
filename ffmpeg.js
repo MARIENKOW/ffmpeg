@@ -9,7 +9,7 @@ ffmpeg.setFfprobePath(process.env.FFPROBE_PATH || ffprobeStatic.path);
 const WATERMARK_PATH =
     process.env.WATERMARK_PATH ||
     path.join(__dirname, "..", "assets", "watermark.png");
-const WATERMARK_SCALE = parseFloat(process.env.WATERMARK_SCALE || "0.20");
+const WATERMARK_SCALE = parseFloat(process.env.WATERMARK_SCALE || "0.80");
 
 // ─── ffprobe: получаем реальные display-размеры видео ────────────
 const getVideoSize = (inputPath) => {
