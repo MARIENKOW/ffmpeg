@@ -6,7 +6,11 @@ const path = require("path");
 const prisma = require("./prisma");
 const { downloadFromGDrive } = require("./downloader");
 const { addWatermark, addWatermarkAndTrim } = require("./ffmpeg");
-const { sendShortVideo, sendFullVideo } = require("./telegram");
+const {
+    sendShortVideo,
+    sendFullVideo,
+    sendErrorToAdmin,
+} = require("../telegram");
 
 const VIDEOS_DIR = path.resolve(process.env.VIDEOS_DIR || "./storage/videos");
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
@@ -73,11 +77,9 @@ router.get("/:id/download/:type", async (req, res) => {
     if (!job) return res.status(404).json({ error: "Задача не найдена" });
 
     if (job.status !== "SUCCESS") {
-        return res
-            .status(409)
-            .json({
-                error: `Задача в статусе "${job.status}", файлы ещё не готовы`,
-            });
+        return res.status(409).json({
+            error: `Задача в статусе "${job.status}", файлы ещё не готовы`,
+        });
     }
 
     const filePath = type === "short" ? job.shortPath : job.fullPath;
@@ -133,25 +135,40 @@ router.get("/:id/download/:type", async (req, res) => {
 async function processJob(id, driveUrl, trimDuration, jobDir) {
     let sourcePath = null;
 
+    // Обёртка: запускает шаг, при ошибке уведомляет админа и пробрасывает дальше
+    const step = async (stageName, fn) => {
+        try {
+            return await fn();
+        } catch (err) {
+            await sendErrorToAdmin(id, stageName, err.message);
+            throw err;
+        }
+    };
+
     try {
         fs.mkdirSync(jobDir, { recursive: true });
 
         const tmpDir = path.join(VIDEOS_DIR, "__tmp__");
         fs.mkdirSync(tmpDir, { recursive: true });
 
+        // Шаг 1 — скачивание
         console.log(`[job:${id}] Скачиваю: ${driveUrl}`);
-        sourcePath = await downloadFromGDrive(driveUrl, tmpDir);
+        sourcePath = await step("📥 Скачивание с Google Drive", () =>
+            downloadFromGDrive(driveUrl, tmpDir),
+        );
         console.log(`[job:${id}] Скачано: ${sourcePath}`);
 
-        // Имена файлов содержат id — гарантированно уникальны
         const shortPath = path.join(jobDir, `short_${id}.mp4`);
         const fullPath = path.join(jobDir, `full_${id}.mp4`);
 
+        // Шаг 2 — обработка ffmpeg
         console.log(`[job:${id}] Запускаю ffmpeg...`);
-        await Promise.all([
-            addWatermarkAndTrim(sourcePath, shortPath, trimDuration),
-            addWatermark(sourcePath, fullPath),
-        ]);
+        await step("🎬 Обработка ffmpeg", () =>
+            Promise.all([
+                addWatermarkAndTrim(sourcePath, shortPath, trimDuration),
+                addWatermark(sourcePath, fullPath),
+            ]),
+        );
         console.log(`[job:${id}] ffmpeg завершён`);
 
         fs.unlinkSync(sourcePath);
@@ -160,22 +177,30 @@ async function processJob(id, driveUrl, trimDuration, jobDir) {
         const shortUrl = `${BASE_URL}/api/jobs/${id}/download/short`;
         const fullUrl = `${BASE_URL}/api/jobs/${id}/download/full`;
 
-        await prisma.job.update({
-            where: { id },
-            data: { status: "SUCCESS", shortPath, fullPath, shortUrl, fullUrl },
-        });
-
+        // Шаг 3 — обновление БД
+        await step("💾 Запись в базу данных", () =>
+            prisma.job.update({
+                where: { id },
+                data: {
+                    status: "SUCCESS",
+                    shortPath,
+                    fullPath,
+                    shortUrl,
+                    fullUrl,
+                },
+            }),
+        );
         console.log(`[job:${id}] Статус → SUCCESS`);
 
-        // Отправляем видео в Telegram параллельно
+        // Шаг 4 — отправка в Telegram (каждый канал независимо)
         console.log(`[job:${id}] Отправляю в Telegram...`);
         await Promise.all([
-            sendShortVideo(shortPath).then(() =>
-                console.log(`[job:${id}] Short → Telegram ✓`),
-            ),
-            sendFullVideo(fullPath).then(() =>
-                console.log(`[job:${id}] Full  → Telegram ✓`),
-            ),
+            step("📤 Отправка короткого видео в Telegram", () =>
+                sendShortVideo(shortPath),
+            ).then(() => console.log(`[job:${id}] Short → Telegram ✓`)),
+            step("📤 Отправка полного видео в Telegram", () =>
+                sendFullVideo(fullPath),
+            ).then(() => console.log(`[job:${id}] Full  → Telegram ✓`)),
         ]);
     } catch (err) {
         console.error(`[job:${id}] Ошибка:`, err.message);
@@ -186,10 +211,19 @@ async function processJob(id, driveUrl, trimDuration, jobDir) {
             } catch (_) {}
         }
 
-        await prisma.job.update({
-            where: { id },
-            data: { status: "ERROR", error: err.message },
-        });
+        await prisma.job
+            .update({
+                where: { id },
+                data: { status: "ERROR", error: err.message },
+            })
+            .catch((dbErr) => {
+                // Если даже запись в БД упала — уведомляем отдельно
+                sendErrorToAdmin(
+                    id,
+                    "💾 Запись ошибки в базу данных",
+                    dbErr.message,
+                );
+            });
     }
 }
 

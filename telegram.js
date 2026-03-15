@@ -9,9 +9,10 @@ const FULL_CHANNEL_ID = process.env.TELEGRAM_FULL_CHANNEL_ID;
 
 // ─── Описание видео — редактируйте здесь ─────────────────────────
 const CAPTIONS = {
-    short: `🎬 Короткая версия\n\nОписание короткого видео — отредактируйте в .env или прямо здесь.`,
+    short: `🔥 New exclusive content!\n\n
+Full version available in VIP\n 👉 @tg_in_online_secret_bot`,
 
-    full: `🎬 Полная версия\n\nОписание полного видео — отредактируйте в .env или прямо здесь.`,
+    full: ``,
 };
 // ─────────────────────────────────────────────────────────────────
 
@@ -64,3 +65,48 @@ const sendFullVideo = (videoPath) => {
 };
 
 module.exports = { sendShortVideo, sendFullVideo };
+
+// ─── Уведомление об ошибке администратору ────────────────────────
+const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
+
+const sendErrorToAdmin = async (jobId, stage, error) => {
+    if (!BOT_TOKEN) {
+        console.warn(
+            "[telegram] BOT_TOKEN не задан, уведомление не отправлено",
+        );
+        return;
+    }
+    if (!ADMIN_CHAT_ID) {
+        console.warn(
+            "[telegram] TELEGRAM_ADMIN_CHAT_ID не задан, уведомление не отправлено",
+        );
+        return;
+    }
+
+    const text = [
+        `❌ <b>Ошибка обработки видео</b>`,
+        ``,
+        `🆔 <b>Job ID:</b> <code>${jobId}</code>`,
+        `📍 <b>Этап:</b> ${stage}`,
+        `💬 <b>Ошибка:</b>`,
+        `<pre>${String(error).slice(0, 3000)}</pre>`, // Telegram лимит на сообщение
+    ].join("\n");
+
+    try {
+        await axios.post(
+            `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+            {
+                chat_id: ADMIN_CHAT_ID,
+                text,
+                parse_mode: "HTML",
+            },
+        );
+    } catch (e) {
+        console.error(
+            "[telegram] Не удалось отправить уведомление администратору:",
+            e.message,
+        );
+    }
+};
+
+module.exports = { sendShortVideo, sendFullVideo, sendErrorToAdmin };
