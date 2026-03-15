@@ -26,10 +26,10 @@ router.post("/", async (req, res) => {
 
     res.status(202).json(true);
 
-    setImmediate(() => processJob(url, TRIM_DURATION, jobDir));
+    setImmediate(() => processJob(url));
 });
 
-async function processJob(driveUrl, trimDuration) {
+async function processJob(driveUrl) {
     let sourcePath = null;
     const id = uuidv4();
 
@@ -64,7 +64,7 @@ async function processJob(driveUrl, trimDuration) {
         console.log(`[job:${id}] Запускаю ffmpeg...`);
         await step("🎬 Обработка ffmpeg", () =>
             Promise.all([
-                addWatermarkAndTrim(sourcePath, shortPath, trimDuration),
+                addWatermarkAndTrim(sourcePath, shortPath, TRIM_DURATION),
                 addWatermark(sourcePath, fullPath),
             ]),
         );
