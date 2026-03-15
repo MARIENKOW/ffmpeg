@@ -192,11 +192,11 @@ async function processJob(id, driveUrl, trimDuration, jobDir) {
     } catch (err) {
         console.error(`[job:${id}] Ошибка:`, err.message);
 
-        if (sourcePath && fs.existsSync(sourcePath)) {
-            try {
-                fs.unlinkSync(sourcePath);
-            } catch (_) {}
-        }
+        // if (sourcePath && fs.existsSync(sourcePath)) {
+        //     try {
+        //         fs.unlinkSync(sourcePath);
+        //     } catch (_) {}
+        // }
 
         await prisma.job.update({
             where: { id },
