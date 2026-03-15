@@ -8,23 +8,23 @@ const WATERMARK_PATH =
     process.env.WATERMARK_PATH ||
     path.join(__dirname, "..", "assets", "watermark.png");
 
-const WATERMARK_SCALE = process.env.WATERMARK_SCALE || "0.8";
+// Вотермарка = 20% от меньшей стороны видео, но не больше 90% ни одной из сторон
+const WATERMARK_SCALE = parseFloat(process.env.WATERMARK_SCALE || "0.80");
 
 const buildCommand = (inputPath, outputPath, extraArgs = []) => {
-    const wmScale = parseFloat(WATERMARK_SCALE);
-
     return ffmpeg(inputPath)
         .input(WATERMARK_PATH)
         .complexFilter([
-            // 1. Компенсируем несквадратные пиксели: умножаем ширину на SAR,
-            //    затем выставляем SAR=1. Это сохраняет визуальные пропорции.
-            //    trunc(...)*2 — чётные размеры, libx264 требует чётных.
+            // 1. Нормализуем пиксели и размеры
             "[0:v] scale=trunc(iw*sar/2)*2:trunc(ih/2)*2,setsar=1 [base]",
 
-            // 2. Масштабируем вотермарку до N% ширины видео
-            `[1:v] scale=iw*${wmScale}:-2 [wm]`,
+            // 2. Масштабируем вотермарку:
+            //    - берём min(ширина, высота) видео → N% от него
+            //    - ограничиваем: не шире 90% видео и не выше 90% видео
+            //    -2 = сохранить пропорции вотермарки с чётным значением
+            `[1:v] scale='min(min(${WATERMARK_SCALE}*min(W\\,H)\\, W*0.9)\\, -2)':'min(min(${WATERMARK_SCALE}*min(W\\,H)\\, H*0.9)\\, -2)',setsar=1 [wm]`,
 
-            // 3. Накладываем вотермарку: правый нижний угол, отступ 2% от края
+            // 3. Правый нижний угол, отступ 2% от края
             "[base][wm] overlay=W-w-W*0.02:H-h-H*0.02 [v]",
         ])
         .outputOptions([
