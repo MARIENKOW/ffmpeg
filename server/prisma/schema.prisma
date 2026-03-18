@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Admin {
+  id           Int     @id @default(autoincrement())
+  password     String  @db.VarChar(100)
+  name         String? @db.VarChar(30)
+  refreshToken String?
+
+  @@map("admin")
+}
+
+model Img {
+  id    Int     @id @default(autoincrement())
+  name  String?
+  path  String
+
+  video Video?
+
+  @@map("img")
+}
+
+model Video {
+  id     Int     @id @default(autoincrement())
+  name   String?
+  path   String
+  img_id Int?    @unique
+
+  img    Img?    @relation(fields: [img_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@map("video")
+}

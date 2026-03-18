@@ -1,13 +1,10 @@
 import { v4 } from "uuid";
-import { Video } from "../models/Video.js";
 import { unlink, existsSync, mkdirSync } from "fs";
-import { PassThrough } from "stream";
+import { spawn } from "child_process";
 import path from "path";
-import ffmpeg from "fluent-ffmpeg";
-import imgService from "./img-service.js";
 import ffmpegPath from "ffmpeg-static";
-
-ffmpeg.setFfmpegPath(ffmpegPath);
+import prisma from "./prisma.js";
+import imgService from "./img-service.js";
 
 class VideoService {
     save = async (video) => {
@@ -17,31 +14,38 @@ class VideoService {
         const videoPath = await this.moveFile(video, videoName);
 
         try {
+            // Снять первый кадр через прямой вызов ffmpeg (без fluent-ffmpeg)
             const imgBuffer = await new Promise((resolve, reject) => {
                 const buffers = [];
-                const passThrough = new PassThrough();
 
-                passThrough.on("data", (chunk) => buffers.push(chunk));
-                passThrough.on("end", () => resolve(Buffer.concat(buffers)));
-                passThrough.on("error", reject);
+                // -vframes 1 -f image2 -vcodec mjpeg pipe:1
+                const proc = spawn(ffmpegPath, [
+                    "-i",       videoPath + "/" + videoName,
+                    "-vframes", "1",
+                    "-f",       "image2",
+                    "-vcodec",  "mjpeg",
+                    "pipe:1",
+                ], { stdio: ["ignore", "pipe", "pipe"] });
 
-                ffmpeg(videoPath + "/" + videoName)
-                    .frames(1)
-                    .format("image2")
-                    .on("error", reject)
-                    .pipe(passThrough, { end: true });
+                proc.stdout.on("data",  (chunk) => buffers.push(chunk));
+                proc.stdout.on("end",   ()      => resolve(Buffer.concat(buffers)));
+                proc.stderr.on("data",  ()      => {}); // подавляем лог ffmpeg
+                proc.on("error", reject);
+                proc.on("close", (code) => {
+                    if (code !== 0 && buffers.length === 0) {
+                        reject(new Error(`ffmpeg exited with code ${code}`));
+                    }
+                });
             });
 
             const { img_id, path: poster } = await imgService.save(imgBuffer);
 
             try {
                 const filePath = process.env.VIDEO_FOLDER + "/" + videoName;
-                const { id: video_id } = await Video.create({
-                    name: videoName,
-                    path: filePath,
-                    img_id,
+                const record   = await prisma.video.create({
+                    data: { name: videoName, path: filePath, img_id },
                 });
-                return { video_id, videoName, path: filePath, poster };
+                return { video_id: record.id, videoName, path: filePath, poster };
             } catch (error) {
                 await imgService.delete(img_id);
                 throw error;
@@ -51,6 +55,28 @@ class VideoService {
             throw error;
         }
     };
+
+    async delete(video_id) {
+        if (!video_id) throw new Error("video_id is not found");
+
+        const video = await prisma.video.findUnique({
+            where: { id: Number(video_id) },
+        });
+        if (!video) throw new Error("video is not found");
+
+        await this.unlinkFile(video.name);
+        await prisma.video.delete({ where: { id: Number(video_id) } });
+
+        if (video.img_id) {
+            try {
+                await imgService.delete(video.img_id);
+            } catch (e) {
+                console.error("img delete error:", e);
+            }
+        }
+
+        return video_id;
+    }
 
     async moveFile(video, videoName) {
         return new Promise((res, rej) => {
@@ -73,16 +99,6 @@ class VideoService {
                 res(true);
             });
         });
-    }
-
-    async delete(video_id) {
-        if (!video_id) throw new Error("video_id is not found");
-
-        const video = await Video.findOne({ where: { id: video_id } });
-        const { name: videoName, id } = video;
-
-        await this.unlinkFile(videoName);
-        return video.destroy({ where: { id: video_id } });
     }
 }
 

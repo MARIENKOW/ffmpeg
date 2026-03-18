@@ -1,33 +1,21 @@
-// import config from "../config";
-import TelegramBot from "node-telegram-bot-api";
+import { Bot } from "grammy";
 import config from "../config.js";
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = config;
 
-const telegrambot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
-   // polling: true,
-});
+// grammy: современная замена node-telegram-bot-api (без deprecated request)
+const bot = new Bot(TELEGRAM_BOT_TOKEN);
 
 class TelegramService {
-   send = async (text) => {
-      try {
-         if (!text) return;
-
-         await telegrambot.sendMessage(TELEGRAM_CHAT_ID, text);
-         // telegrambot.on('message',(m)=>{
-         //    console.log(m.text);
-         //    console.log(m);
-         //    telegrambot.sendMessage(
-         //       TELEGRAM_CHAT_ID,
-         //       m.text
-         //    );
-         // })
-      } catch (error) {
-         console.log(error);
-         throw new Error(error);
-         // throw error;
-      }
-   };
+    send = async (text) => {
+        try {
+            if (!text) return;
+            await bot.api.sendMessage(TELEGRAM_CHAT_ID, text);
+        } catch (error) {
+            console.error("Telegram send error:", error);
+            throw error;
+        }
+    };
 }
 
 export default new TelegramService();
