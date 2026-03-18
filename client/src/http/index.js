@@ -1,6 +1,6 @@
 import axios from "axios";
 import config from "../configs/config";
-import { adminStore } from "../app/(dashboard)/layout";
+import { adminStore } from "../components/wrappers/AdminAuthProvider";
 export const ADMIN_API_URL = config.SERVER_API + "/Admin";
 
 export const $AdminApi = axios.create({

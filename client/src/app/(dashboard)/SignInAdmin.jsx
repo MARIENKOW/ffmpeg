@@ -1,17 +1,16 @@
 import { Typography } from "@mui/material";
 import { useForm } from "react-hook-form";
 import DoubleArrowIcon from "@mui/icons-material/DoubleArrow";
-import { useContext } from "react";
 import { enqueueSnackbar } from "notistack";
 import { StyledPassword } from "../../components/form/StyledPassword";
 import { StyledAlert } from "../../components/form/StyledAlert";
 import { StyledLoadingButton } from "../../components/form/StyledLoadingButton";
 import InCenter from "../../components/wrappers/InCenter";
 import { ADMIN_PASSWORD_MAX_LENGTH } from "../../configs/validateConfig";
-import { AdminContext } from "./layout";
+import { useAdminContext } from "../../components/wrappers/AdminAuthProvider";
 
 const SignInAdmin = () => {
-    const { signInAdmin } = useContext(AdminContext);
+    const { signInAdmin } = useAdminContext();
 
     const {
         handleSubmit,

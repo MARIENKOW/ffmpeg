@@ -1,11 +1,10 @@
 import Loading from "../loading/Loading";
-import { AdminContext } from "../../app/(dashboard)/layout";
 import { observer } from "mobx-react-lite";
 import SignInAdmin from "../../app/(dashboard)/SignInAdmin";
-import { useContext } from "react";
+import { useAdminContext } from "./AdminAuthProvider";
 
 function ChechAuthAdmin({ children }) {
-    const { isLoading, isAuth } = useContext(AdminContext);
+    const { isLoading, isAuth } = useAdminContext();
 
     if (isLoading) return <Loading />;
 
